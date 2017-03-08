@@ -1,2 +1,7 @@
 # ho
-An node library of higher-order functions
+
+A javascript library of higher-order functions.
+
+## Status
+
+Not yet released.
