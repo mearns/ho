@@ -1,8 +1,12 @@
-# Compiled output
-dist/
+# Source
+src/
 
 # Various Reports
 reports/
+
+# Unit tests
+test/
+dist/test/
 
 # Logs
 logs
