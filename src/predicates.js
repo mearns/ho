@@ -1,4 +1,84 @@
 
+function Predicate() {}
+Predicate.createBuilder = ({build, describe: _describe}) => {
+    return (...args) => {
+        const test = build(...args);
+        const describe = (typeof _describe === 'function')
+            ? () => _describe(...args)
+            : () => _describe;
+        return createPredicate(test, describe);
+    };
+};
+
+function createPredicate(test, describe) {
+    const predicate = (subject) => Boolean(test(subject));
+    const proto = Object.create(Predicate.prototype, {
+        toString: describe
+    });
+    Object.setPrototypeOf(predicate, proto);
+    return predicate;
+}
+
+function Modifier() {}
+
+/**
+ * :param modify: A function that turns a boolean into a boolean.
+ * :param modifyDescription: A function that turns a string (the description
+ *      of the unmodified predicate) into another string to describe the modified
+ *      predicate.
+ */
+Modifier.create = ({modify, modifyDescription}) => {
+    const modifier = (predicate) => {
+        return createPredicate(
+            (subject) => modify(predicate(subject)),
+            () => modifyDescription(predicate.toString())
+        );
+    };
+    const proto = Object.create(Modifier.prototype);
+    Object.setPrototypeOf(modifier, proto);
+    return modifier;
+};
+
+const identityModifier = Modifier.create({
+    modify: (b) => b,
+    modifyDescription: (description) => description
+});
+
+function PredicateCollection({modifier}) {
+    this.modifier = modifier || identityModifier;
+}
+
+function registerPredicate({name, build, describe}) {
+    const unmodifiedPredicateBuilder = Predicate.createBuilder({build, describe});
+    PredicateCollection.prototype[name] = function (...args) {
+        const unmodifiedPredicate = unmodifiedPredicateBuilder(...args);
+        return this.modifier(unmodifiedPredicate);
+    };
+}
+
+function registerModifier({name, modify, modifyDescription}) {
+    PredicateCollection.prototype[name] = new PredicateCollection({
+        modifier: Modifier.create({modify, modifyDescription})
+    });
+}
+
+function registerChain({name, combine, combineDescriptions}) {
+    // TODO: Need to get "this" in here somehow, can I do it without making the chain a function?
+    // Maybe I can define a property on the prototype?
+    Object.defineProperty(Predicate.prototpye, name, {
+        get: function () {
+            return new PredicateCollection({
+                modifier: Modifier.create({
+                    // XXX: Can't use Modifier, or it needs to change to be at a higher level,
+                    // so it can access the subject.
+                    modify: (b) => combine(this)
+                }),
+                modifyDescription: () => {}
+            });
+        }
+    });
+}
+
 const predicateDefinitions = {
     always: {
         supplier: (result) => {
